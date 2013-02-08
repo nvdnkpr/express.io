@@ -42,17 +42,24 @@ express.application.io = (options) ->
     @io.router = new Object
     @io.middleware = []
     @io.route = (route, next, options) ->
-        if options?.trigger is true
-            if route.indexOf ':' is -1
-                @router[route] next
-            else
-                split = route.split ':'
-                @router[split[0]][split[1]] next
-        if _.isFunction next
-            @router[route] = next
+        # if options?.trigger is true
+        #     if route.indexOf ':' is -1
+        #         @router[route] next
+        #     else
+        #         split = route.split ':'
+        #         @router[split[0]][split[1]] next
+        # Using the ":" to split the routes into namespaces
+        if route.indexOf ':' is -1
+          namespace = 'default'
         else
-            for key, value of next
-                @router["#{route}:#{key}"] = value
+          split = route.split ':'
+          namespace = split[0]
+          route = split[1]
+          
+        if _.isFunction next
+          if not @router[namespace]?
+            @router[namespace] = {}
+          @router[namespace][route] = next
     @io.configure => @io.set 'authorization', (data, next) =>
         unless sessionConfig.store?
             return async.forEachSeries @io.middleware, (callback, next) ->
@@ -85,9 +92,10 @@ express.application.io = (options) ->
 
     @io.use = (callback) =>
         @io.middleware.push callback
-
-    @io.sockets.on 'connection', (socket) =>
-        initRoutes socket, @io
+    
+    _.each @io.router, (routes, namespace) ->
+      @io.of(namespace).on 'connection', (socket) =>
+          initRoutes socket, routes, @io
 
     @io.broadcast = =>
         args = Array.prototype.slice.call arguments, 0
@@ -127,7 +135,7 @@ express.application.listen = ->
         listen.apply this, args
         
 
-initRoutes = (socket, io) ->
+initRoutes = (socket, routes, io) ->
     setRoute = (key, callback) ->
         socket.on key, (data, respond) ->
             if typeof data is 'function'
@@ -149,7 +157,7 @@ initRoutes = (socket, io) ->
             request.io.respond = respond
             request.io.respond ?= ->
             callback request
-    for key, value of io.router
+    for key, value of routes
         setRoute(key, value)
 
 
