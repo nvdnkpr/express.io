@@ -42,12 +42,6 @@ express.application.io = (options) ->
     @io.router = new Object
     @io.middleware = []
     @io.route = (route, next, options) ->
-        # if options?.trigger is true
-        #     if route.indexOf ':' is -1
-        #         @router[route] next
-        #     else
-        #         split = route.split ':'
-        #         @router[split[0]][split[1]] next
         # Using the ":" to split the routes into namespaces
         if route.indexOf ':' is -1
           namespace = 'default'
